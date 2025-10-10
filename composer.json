@@ -1,0 +1,50 @@
+{
+    "name": "super-kernel/logger",
+    "description": "The logger component for super-kernel.",
+    "type": "library",
+    "keywords": [
+        "php",
+        "swoole",
+        "super-kernel",
+        "logger"
+    ],
+    "require": {
+        "php": ">=8.4",
+        "psr/log": "^3.0",
+        "monolog/monolog": "^3.9",
+        "super-kernel/attribute": "^1.0",
+        "symfony/console": "^7.3",
+        "super-kernel/contract": "^1.0"
+    },
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "SuperKernel\\Logger\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "SuperKernelTest\\Logger\\": "tests/"
+        }
+    },
+    "authors": [
+        {
+            "name": "wheakerd",
+            "email": "wheakerd@gmail.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require-dev": {
+        "super-kernel/config": "^1.0",
+        "super-kernel/composer-plugin": "^1.0",
+        "super-kernel/di": "^1.0",
+        "super-kernel/framework": "^1.0",
+        "super-kernel/event-dispatcher": "^1.0",
+        "super-kernel/command": "^1.0"
+    },
+    "config": {
+        "allow-plugins": {
+            "super-kernel/composer-plugin": true
+        }
+    }
+}
