@@ -6,10 +6,12 @@ namespace SuperKernel\Logger;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 use Stringable;
-use SuperKernel\Attribute\Contract;
+use SuperKernel\Attribute\Provider;
 use Symfony\Component\Console\Output\ConsoleOutput;
 
-#[Contract(LoggerInterface::class)]
+#[
+	Provider(LoggerInterface::class),
+]
 final readonly class Logger implements LoggerInterface
 {
 	private ConsoleOutput $output;
@@ -67,13 +69,13 @@ final readonly class Logger implements LoggerInterface
 		}
 
 		$line = match ($level) {
-			'error',
-			'critical',
-			'alert',
-			'emergency' => "<error>[ERROR] </error>",
-			'warning'   => "<comment>[WARNING] </comment>",
-			default     => "<info>[INFO] </info>",
-		} . $msg;
+			        'error',
+			        'critical',
+			        'alert',
+			        'emergency' => "<error>[ERROR] </error>",
+			        'warning'   => "<comment>[WARNING] </comment>",
+			        default     => "<info>[INFO] </info>",
+		        } . $msg;
 
 		$this->output->writeln($line);
 	}
