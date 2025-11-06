@@ -27,24 +27,12 @@
             "SuperKernelTest\\Logger\\": "tests/"
         }
     },
-    "authors": [
-        {
-            "name": "wheakerd",
-            "email": "wheakerd@gmail.com"
-        }
-    ],
     "minimum-stability": "stable",
     "require-dev": {
         "super-kernel/config": "^1.0",
-        "super-kernel/composer-plugin": "^1.0",
         "super-kernel/di": "^1.0",
         "super-kernel/framework": "^1.0",
         "super-kernel/event-dispatcher": "^1.0",
         "super-kernel/command": "^1.0"
-    },
-    "config": {
-        "allow-plugins": {
-            "super-kernel/composer-plugin": true
-        }
     }
 }

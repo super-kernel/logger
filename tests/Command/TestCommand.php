@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace SuperKernelTest\Command;
+namespace SuperKernelTest\Logger\Command;
 
 use Psr\Log\LoggerInterface;
 use SuperKernel\Logger\LoggerFactory;
@@ -20,8 +20,16 @@ final class TestCommand extends Command
 
 	public function execute(InputInterface $input, OutputInterface $output): int
 	{
-		$this->logger->warning('logger');
-		$this->loggerFactory->get('default')->debug('loggerFactory');
+		$this->logger->emergency('Start executing the test command.');
+		$this->logger->alert('Start executing the test command.');
+		$this->logger->critical('Start executing the test command.');
+		$this->logger->error('Start executing the test command.');
+		$this->logger->warning('Start executing the test command.');
+		$this->logger->notice('Start executing the test command.');
+		$this->logger->info('Start executing the test command.');
+		$this->logger->debug('Start executing the test command.');
+
+		$this->loggerFactory->get('default')->debug('LoggerFactory is okay.');
 
 		return Command::SUCCESS;
 	}

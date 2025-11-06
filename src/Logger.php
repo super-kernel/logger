@@ -12,7 +12,7 @@ use Symfony\Component\Console\Output\ConsoleOutput;
 #[
 	Provider(LoggerInterface::class),
 ]
-final readonly class Logger implements LoggerInterface
+final class Logger implements LoggerInterface
 {
 	private ConsoleOutput $output;
 
@@ -63,9 +63,8 @@ final readonly class Logger implements LoggerInterface
 
 	public function log($level, Stringable|string $message, array $context = []): void
 	{
-		$msg = strtoupper((string)$message);
 		if (!empty($context)) {
-			$msg .= ' ' . json_encode($context, JSON_UNESCAPED_UNICODE);
+			$message .= ' ' . json_encode($context, JSON_UNESCAPED_UNICODE);
 		}
 
 		$line = match ($level) {
@@ -75,7 +74,7 @@ final readonly class Logger implements LoggerInterface
 			        'emergency' => "<error>[ERROR] </error>",
 			        'warning'   => "<comment>[WARNING] </comment>",
 			        default     => "<info>[INFO] </info>",
-		        } . $msg;
+		        } . $message;
 
 		$this->output->writeln($line);
 	}

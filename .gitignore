@@ -1,8 +1,7 @@
 .idea/
 .git/
-runtime/
+logs/
+target/
 vendor/
 .vscode/
-*.phar
-*.phar.gz
 composer.lock
