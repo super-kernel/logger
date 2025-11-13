@@ -12,9 +12,8 @@
         "php": ">=8.4",
         "psr/log": "^3.0",
         "monolog/monolog": "^3.9",
-        "super-kernel/attribute": "^1.0",
         "symfony/console": "^7.3",
-        "super-kernel/contract": "^1.0"
+        "super-kernel/contract": "*"
     },
     "license": "MIT",
     "autoload": {
@@ -29,10 +28,15 @@
     },
     "minimum-stability": "stable",
     "require-dev": {
-        "super-kernel/config": "^1.0",
-        "super-kernel/di": "^1.0",
-        "super-kernel/framework": "^1.0",
-        "super-kernel/event-dispatcher": "^1.0",
-        "super-kernel/command": "^1.0"
+        "super-kernel/di": "*",
+        "super-kernel/framework": "*",
+        "super-kernel/event-dispatcher": "*",
+        "super-kernel/command": "*",
+        "super-kernel/config": "@dev"
+    },
+    "config": {
+        "sort‑packages": true,
+        "optimize-autoloader": true,
+        "classmap-authoritative": true
     }
 }

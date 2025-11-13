@@ -6,7 +6,7 @@ namespace SuperKernel\Logger;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 use Stringable;
-use SuperKernel\Attribute\Provider;
+use SuperKernel\Di\Attribute\Provider;
 use Symfony\Component\Console\Output\ConsoleOutput;
 
 #[

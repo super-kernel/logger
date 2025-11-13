@@ -6,10 +6,10 @@ namespace SuperKernelTest\Logger;
 use Monolog\Formatter\LineFormatter;
 use Monolog\Handler\StreamHandler;
 use Monolog\Level;
-use SuperKernel\Attribute\Configuration;
+use SuperKernel\Config\Attribute\Configuration;
 use SuperKernel\Logger\Contract\LoggerConfigInterface;
 
-#[Configuration(LoggerConfigInterface::class)]
+#[Configuration]
 final class LoggerConfig implements LoggerConfigInterface
 {
 	public array $default = [
