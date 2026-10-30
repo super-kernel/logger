@@ -41,38 +41,9 @@ final class ConsoleFormatter extends LineFormatter
 
     public function format(LogRecord $record): string
     {
-        $record = $record->with(extra: [
-            ...$record->extra,
-            'super_kernel_timestamp' => $this->decorate(
-                $record->datetime->format(self::DATE_FORMAT),
-                self::ANSI_FAINT,
-            ),
-            'super_kernel_level' => $this->decorate(
-                '[' . $record->level->getName() . ']',
-                $this->levelColor($record->level),
-            ),
-        ]);
-
-        return rtrim(parent::format($record)) . "\n";
-    }
-
-    public function isDecorated(): bool
-    {
-        return $this->decorated;
-    }
-
-    private function decorate(string $value, string $color): string
-    {
-        if (!$this->decorated) {
-            return $value;
-        }
-
-        return $color . $value . self::ANSI_RESET;
-    }
-
-    private function levelColor(Level $level): string
-    {
-        return match ($level) {
+        $timestamp = $record->datetime->format(self::DATE_FORMAT);
+        $level = '[' . $record->level->getName() . ']';
+        $levelColor = match ($record->level) {
             Level::Emergency,
             Level::Alert,
             Level::Critical,
@@ -82,5 +53,23 @@ final class ConsoleFormatter extends LineFormatter
             Level::Info,
             Level::Debug => self::ANSI_GREEN,
         };
+
+        if ($this->decorated) {
+            $timestamp = self::ANSI_FAINT . $timestamp . self::ANSI_RESET;
+            $level = $levelColor . $level . self::ANSI_RESET;
+        }
+
+        $record = $record->with(extra: [
+            ...$record->extra,
+            'super_kernel_timestamp' => $timestamp,
+            'super_kernel_level'     => $level,
+        ]);
+
+        return rtrim(parent::format($record)) . "\n";
+    }
+
+    public function isDecorated(): bool
+    {
+        return $this->decorated;
     }
 }
