@@ -23,21 +23,17 @@ final readonly class StdoutLoggerProvider
         LoggerFactory $loggerFactory,
     ): StdoutLoggerInterface
     {
+        $decorated = false === getenv('NO_COLOR')
+            && 'dumb' !== getenv('TERM')
+            && defined('STDOUT')
+            && stream_isatty(STDOUT);
+
         return new StdoutLogger(
             $loggerFactory->create(
                 channel: 'super-kernel',
                 stream: 'php://stdout',
-                formatter: new ConsoleFormatter(decorated: $this->supportsAnsi()),
+                formatter: new ConsoleFormatter(decorated: $decorated),
             ),
         );
-    }
-
-    private function supportsAnsi(): bool
-    {
-        if (false !== getenv('NO_COLOR') || 'dumb' === getenv('TERM') || !defined('STDOUT')) {
-            return false;
-        }
-
-        return stream_isatty(STDOUT);
     }
 }

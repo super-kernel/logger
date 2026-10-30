@@ -8,11 +8,11 @@ identity and policy themselves.
 
 Paths below are relative to `src/` and the package namespace.
 
-| Directory | Responsibility |
-| --- | --- |
-| `Factory` | `LoggerFactory`: synchronous Monolog construction. |
-| `Formatter` | `ConsoleFormatter`: terminal record rendering. |
-| `Provider` | `StdoutLoggerProvider`: named stdout-service policy and construction. |
+| Directory   | Responsibility                                                        |
+|-------------|-----------------------------------------------------------------------|
+| `Factory`   | `LoggerFactory`: synchronous Monolog construction.                    |
+| `Formatter` | `ConsoleFormatter`: terminal record rendering.                        |
+| `Provider`  | `StdoutLoggerProvider`: named stdout-service policy and construction. |
 
 ### Public namespaces
 
