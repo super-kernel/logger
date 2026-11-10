@@ -48,11 +48,9 @@ $logger->warning('Worker {workerId} stopped.', ['workerId' => 7]);
 
 Framework 的异常记录也使用这个具名 stdout 服务。由调用方选择 PSR-3 错误级别并负责异常的格式化；Logger 不提供第二个专用于异常的标识、适配器、通道或 stderr 传输。
 
-## 扫描诊断
+## 替换 stdout 日志器
 
-DI 通过实际注册的 `StdoutLoggerInterface` 报告被跳过的类：一条 WARNING 汇总，以及每个类一条 INFO 明细。默认的 INFO 阈值两者都会显示。WARNING 阈值只显示汇总；替换后的日志器自行负责所有过滤和传输选择。正常扫描时在执行扫描的子进程中构造该服务；仅恢复的 Phar 启动则在当前进程中构造它，并在每次启动时报告构建期的诊断。
-
-要替换默认服务，请添加一个应用的生产 Provider，例如 `src/Logger/AppLogger.php`：
+Framework 组件通过已注册的 `StdoutLoggerInterface` 写出记录，因此替换它即可统一控制这些记录的阈值、格式和流。要替换默认服务，请添加一个应用的生产 Provider，例如 `src/Logger/AppLogger.php`：
 
 ```php
 <?php
@@ -94,8 +92,6 @@ final readonly class AppLogger implements StdoutLoggerInterface
 }
 ```
 
-如果要同时看到汇总和明细，把示例中的级别改为 INFO；如果目标就是 stdout，改用 `php://stdout`。请保持该服务使用 `Provider`；再声明一个同目标的 `FactoryProvider` 会与默认工厂冲突。添加这个类之后刷新 Composer 自动加载。如果应用需要按部署环境区分级别，请注入配置或环境变量服务。不要在日志器的构造函数中调用 `ApplicationContext::getContainer()`：此时扫描子进程中的根容器尚未创建完成。
+示例把 WARNING 及以上级别写到 STDERR；如果要保留默认的阈值和输出目标，改用 INFO 和 `php://stdout`。请保持该服务使用 `Provider`；再声明一个同目标的 `FactoryProvider` 会与默认工厂冲突。添加这个类之后请再次运行 `skernel build`，让容器发现它；`skernel run` 会在启动前先构建。如果应用需要按部署环境区分级别，请注入配置或环境变量服务。
 
-Logger 负责时间戳、级别、格式和所选的流。默认是 STDOUT 上的 INFO。PCNTL 和 Process 下，默认的扫描记录到达父进程的 STDOUT。Exec 会把子进程的输出合并到父进程的 STDERR。Null/Phar 使用当前进程的 STDOUT。流和失败处理的细节参见 [DI 扫描诊断](https://github.com/super-kernel/di/blob/main/README.md#scan-diagnostics)。
-
-因此，`list --format=json` 之类的命令即使以 0 退出，stdout 上也可能在 JSON 之前出现日志行。当 stdout 必须是机器可读的协议时，请使用写到 STDERR 或文件的替换日志器；只把阈值改为 WARNING 仍会留下汇总。没有针对命令的流切换开关。应用已有的日志也使用同一个服务，因此同样遵循替换后的策略。
+Logger 负责时间戳、级别、格式和所选的流。默认是 STDOUT 上的 INFO，因此日志行可能出现在命令自身的输出之前。当 stdout 必须是机器可读的协议时，请使用写到 STDERR 或文件的替换日志器。没有针对命令的流切换开关。应用已有的日志也使用同一个服务，因此同样遵循替换后的策略。
