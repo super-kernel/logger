@@ -48,11 +48,9 @@ ANSI decoration is enabled only for an interactive stdout when `NO_COLOR` is abs
 
 Framework exception records use this same named stdout service. Their callers select the PSR-3 error level and own throwable formatting; Logger does not provide a second exception-only identity, adapter, channel, or stderr transport.
 
-## Scan diagnostics
+## Replacing the stdout logger
 
-DI reports skipped classes through the actual registered `StdoutLoggerInterface`: one WARNING summary and an INFO detail per class. The default INFO threshold shows both. A WARNING threshold shows only the summary; a replacement logger owns all filtering and transport choices. Normal scans construct the service in the scanning child; restore-only Phar startup constructs it in the current process and reports build diagnostics each time.
-
-To replace the default service, add a production application Provider, for example `src/Logger/AppLogger.php`:
+Framework components write their records through the registered `StdoutLoggerInterface`, so a replacement controls the threshold, format, and stream of all of them. To replace the default service, add a production application Provider, for example `src/Logger/AppLogger.php`:
 
 ```php
 <?php
@@ -94,8 +92,6 @@ final readonly class AppLogger implements StdoutLoggerInterface
 }
 ```
 
-Use INFO in this example for summaries and details, and `php://stdout` if stdout is the intended destination. Keep the service as `Provider`; another same-target `FactoryProvider` would conflict with the default factory. Refresh the Composer autoloader after adding the class. Inject configuration or environment services if the application needs deployment-specific levels. Do not call `ApplicationContext::getContainer()` from the logger constructor: scan-child root creation has not returned yet.
+The example writes WARNING and above to STDERR; use INFO and `php://stdout` to keep the default threshold and destination. Keep the service as `Provider`; another same-target `FactoryProvider` would conflict with the default factory. Run `skernel build` again after adding the class so that the container discovers it; `skernel run` builds before it starts. Inject configuration or environment services if the application needs deployment-specific levels.
 
-Logger supplies timestamp, level, formatting, and its chosen stream. The default is INFO on STDOUT. For PCNTL and Process, default scan records reach parent STDOUT. Exec merges child streams into parent STDERR. Null/Phar uses the current process's STDOUT. See [DI scan diagnostics](https://github.com/super-kernel/di/blob/main/README.md#scan-diagnostics) for stream and failure details.
-
-Commands such as `list --format=json` can consequently have log lines before their JSON on stdout, even with exit 0. Use a replacement logging to STDERR or a file when stdout must be a machine-readable protocol; changing only the threshold to WARNING still leaves the summary. There is no command-specific stream switch. Existing application logs use this same service, so they follow the replacement policy too.
+Logger supplies timestamp, level, formatting, and its chosen stream. The default is INFO on STDOUT, so log lines can precede a command's own output there. Use a replacement logging to STDERR or a file when stdout must be a machine-readable protocol. There is no command-specific stream switch. Existing application logs use this same service, so they follow the replacement policy too.
