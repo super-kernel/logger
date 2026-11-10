@@ -4,94 +4,103 @@
 
 # SuperKernel Logger
 
-`super-kernel/logger` provides Monolog-backed logger creation and the named standard-output logger used by SuperKernel runtime components. It does not bind the generic `Psr\Log\LoggerInterface`; applications must choose that service identity and policy themselves.
+`super-kernel/logger` provides the standard output logger that SuperKernel's packages write to, and a factory for the Monolog loggers an application creates for itself.
 
-## Logger factory
+## Installation
 
-`SuperKernel\Logger\Factory\LoggerFactory` creates a fresh synchronous Monolog logger with one stream handler. Callers select the channel and stream explicitly; the minimum level defaults to `Psr\Log\LogLevel::INFO`. An optional Monolog formatter can be attached to that handler without changing the default format used by other callers.
-
-```php
-use Psr\Log\LogLevel;
-use SuperKernel\Logger\Factory\LoggerFactory;
-
-$logger = new LoggerFactory()->create(
-    channel: 'audit',
-    stream: '/var/log/application/audit.log',
-    minimumLevel: LogLevel::WARNING,
-);
-
-$logger->warning('Worker {workerId} stopped.', ['workerId' => 7]);
+```bash
+composer require super-kernel/logger
 ```
 
-The factory returns `Psr\Log\LoggerInterface`, creates a new logger for every call, and leaves service retention to the consumer's container. Monolog opens the stream lazily; invalid levels and stream-open or write failures propagate unchanged.
+The package uses Monolog and has no requirement beyond PHP. The standard output logger is a container service: it is found in the metadata that `skernel build` generates, so a project needs SKERNEL to build it.
 
-The factory does not discover environment files, redact sensitive context, rotate files, buffer records, configure remote transports, or claim coroutine-safe or asynchronous Swoole delivery. Those policies belong to the service that uses the factory.
+## What it provides
 
-## Console format
+- `StdoutLoggerInterface`, which writes `INFO` and above to the standard output in a readable console format.
+- Colors on an interactive terminal, and plain output otherwise.
+- `LoggerFactory`, which creates a Monolog logger with one stream handler for a channel, a stream, a level, and an optional formatter.
+- `ConsoleFormatter`, the console format, for loggers of your own.
+- Replacement of the standard output logger by an application `#[Provider]`.
 
-`SuperKernel\Logger\Formatter\ConsoleFormatter` provides the readable format selected by the named standard-output logger. Its layout is inspired by Spring Boot's console output while retaining PSR-3 and PHP semantics:
+It does not:
 
-```text
-2026-08-18T03:05:46.007+00:00 [NOTICE] Swoole main server started in base mode.
-2026-08-18T03:05:46.008+00:00 [INFO] Swoole listener "http" started on 127.0.0.1:9501 (http).
-```
+- bind `Psr\Log\LoggerInterface`; an application chooses that service;
+- replace placeholders or show context in the console format;
+- read environment files, redact data, rotate files, or buffer records;
+- send records to remote services or write asynchronously.
 
-The formatter emits a sortable timestamp with millisecond precision, keeps each PSR-3 level compact inside square brackets, follows it with exactly one space, and renders only the message. It omits context and extra data, as well as process, separator, channel, and thread columns. A consuming runtime builds its human-readable terminal sentence explicitly; structured output belongs on a separately configured formatter and handler.
+## Quick start
 
-Plain output is the default. Passing `decorated: true` enables Spring Boot-inspired ANSI decoration: timestamps are faint; error levels are red; `WARNING` is yellow; `NOTICE` is cyan; and `INFO` and `DEBUG` are green. Messages remain undecorated. The consuming service decides whether its output supports ANSI decoration.
-
-## Named stdout logger
-
-The container supplies `SuperKernel\Contract\StdoutLoggerInterface` with a fresh logger on the `super-kernel` channel, one `php://stdout` stream handler at `INFO`, and `ConsoleFormatter`. Records reach Monolog unchanged.
-
-ANSI decoration is enabled only for an interactive stdout when `NO_COLOR` is absent and `TERM` is not `dumb`. Redirected or opted-out output remains plain.
-
-Framework exception records use this same named stdout service. Their callers select the PSR-3 error level and own throwable formatting; Logger does not provide a second exception-only identity, adapter, channel, or stderr transport.
-
-## Replacing the stdout logger
-
-Framework components write their records through the registered `StdoutLoggerInterface`, so a replacement controls the threshold, format, and stream of all of them. To replace the default service, add a production application Provider, for example `src/Logger/AppLogger.php`:
+Write to the standard output logger from a service. Save it as `src/Billing/InvoiceImporter.php`:
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace Src\Logger;
+namespace Src\Billing;
 
-use Psr\Log\LoggerInterface;
-use Psr\Log\LoggerTrait;
-use Psr\Log\LogLevel;
-use Stringable;
-use SuperKernel\Attribute\Provider;
 use SuperKernel\Contract\StdoutLoggerInterface;
-use SuperKernel\Logger\Factory\LoggerFactory;
-use SuperKernel\Logger\Formatter\ConsoleFormatter;
 
-#[Provider(StdoutLoggerInterface::class)]
-final readonly class AppLogger implements StdoutLoggerInterface
+final readonly class InvoiceImporter
 {
-    use LoggerTrait;
-
-    private LoggerInterface $logger;
-
-    public function __construct(LoggerFactory $factory)
+    public function __construct(private StdoutLoggerInterface $logger)
     {
-        $this->logger = $factory->create(
-            channel: 'application',
-            stream: 'php://stderr',
-            minimumLevel: LogLevel::WARNING,
-            formatter: new ConsoleFormatter(),
-        );
     }
 
-    public function log(mixed $level, string|Stringable $message, array $context = []): void
+    public function import(string $invoiceNumber): void
     {
-        $this->logger->log($level, $message, $context);
+        $this->logger->debug("Reading invoice {$invoiceNumber}.");
+        $this->logger->info("Invoice {$invoiceNumber} imported.");
     }
 }
 ```
 
-The example writes WARNING and above to STDERR; use INFO and `php://stdout` to keep the default threshold and destination. Keep the service as `Provider`; another same-target `FactoryProvider` would conflict with the default factory. Run `skernel build` again after adding the class so that the container discovers it; `skernel run` builds before it starts. Inject configuration or environment services if the application needs deployment-specific levels.
+Use the service from a script. Save it as `bin/import.php`:
 
-Logger supplies timestamp, level, formatting, and its chosen stream. The default is INFO on STDOUT, so log lines can precede a command's own output there. Use a replacement logging to STDERR or a file when stdout must be a machine-readable protocol. There is no command-specific stream switch. Existing application logs use this same service, so they follow the replacement policy too.
+```php
+<?php
+
+declare(strict_types=1);
+
+use Src\Billing\InvoiceImporter;
+use SuperKernel\Context\ApplicationContext;
+
+require dirname(__DIR__) . '/vendor/autoload.php';
+
+ApplicationContext::getContainer()->get(InvoiceImporter::class)->import('INV-1001');
+```
+
+Build the project and run the script:
+
+```bash
+skernel build
+php bin/import.php
+```
+
+It prints a line such as `2026-11-10T10:56:25.283+00:00 [INFO] Invoice INV-1001 imported.`; the `DEBUG` record is below the threshold.
+
+## Public surface
+
+| Name | Kind | Purpose |
+| --- | --- | --- |
+| `SuperKernel\Contract\StdoutLoggerInterface` | Interface | Provided by the container; the PSR-3 logger that writes to the standard output. |
+| `SuperKernel\Logger\Factory\LoggerFactory` | Class | `create()` returns a new Monolog logger for a channel, stream, minimum level, and optional formatter. |
+| `SuperKernel\Logger\Formatter\ConsoleFormatter` | Class | Formats a record as `<timestamp> [<LEVEL>] <message>`, with colors when `decorated` is `true`. |
+
+## Behavior to know
+
+- The standard output logger writes to `php://stdout`, so its records mix with a command's own output. Replace it with one that writes to `php://stderr` or a file when the standard output must stay machine-readable.
+- The console format shows the message as given: placeholders such as `{id}` are not replaced, and context and extra data are not shown.
+- Colors are used only when the standard output is a terminal, `NO_COLOR` is not set, and `TERM` is not `dumb`.
+- Replace the logger with a class marked `#[Provider(StdoutLoggerInterface::class)]`. A second `#[FactoryProvider]` for the interface makes every lookup fail with `Factory provider for SuperKernel\Contract\StdoutLoggerInterface is declared by both <class> and SuperKernel\Logger\Provider\StdoutLoggerProvider.`
+- Run `skernel build` again after adding or changing a replacement, or start with `skernel run`, which builds first.
+- `LoggerFactory::create()` raises `Psr\Log\InvalidArgumentException` for an unknown level; a stream that cannot be opened or written fails when the first record is written.
+
+## Documentation
+
+The developer documentation describes the console format, creating loggers and binding `LoggerInterface`, replacing the standard output logger, and keeping machine-readable output clean: [SuperKernel Logger](https://github.com/super-kernel/.github/blob/main/docs/components/logger.md).
+
+## License
+
+Released under the MIT License. See [LICENSE](LICENSE).

@@ -4,94 +4,103 @@
 
 # SuperKernel Logger
 
-`super-kernel/logger` 提供基于 Monolog 的日志器创建，以及 SuperKernel 运行时组件所用的具名标准输出日志器。它不绑定通用的 `Psr\Log\LoggerInterface`；该服务的标识和策略由应用自行决定。
+`super-kernel/logger` 提供 SuperKernel 各个包写入的标准输出日志记录器，以及用于创建应用自有 Monolog 日志记录器的工厂。
 
-## 日志器工厂
+## 安装
 
-`SuperKernel\Logger\Factory\LoggerFactory` 创建一个新的同步 Monolog 日志器，带一个流处理器。调用方显式选择通道和流；最低级别默认为 `Psr\Log\LogLevel::INFO`。可以给这个处理器附加一个可选的 Monolog 格式器，而不改变其他调用方使用的默认格式。
-
-```php
-use Psr\Log\LogLevel;
-use SuperKernel\Logger\Factory\LoggerFactory;
-
-$logger = new LoggerFactory()->create(
-    channel: 'audit',
-    stream: '/var/log/application/audit.log',
-    minimumLevel: LogLevel::WARNING,
-);
-
-$logger->warning('Worker {workerId} stopped.', ['workerId' => 7]);
+```bash
+composer require super-kernel/logger
 ```
 
-工厂返回 `Psr\Log\LoggerInterface`，每次调用都创建新的日志器，服务的保留交给使用方的容器。Monolog 延迟打开流；无效的级别以及流打开或写入失败都会原样传播。
+本包使用 Monolog，除 PHP 外没有其他要求。标准输出日志记录器是一个容器服务：它从 `skernel build` 生成的元数据中发现，因此项目需要用 SKERNEL 构建。
 
-工厂不会发现环境文件、脱敏上下文、轮转文件、缓冲记录、配置远程传输，也不声称支持协程安全或异步的 Swoole 投递。这些策略属于使用该工厂的服务。
+## 提供的能力
 
-## 控制台格式
+- `StdoutLoggerInterface`，以易读的控制台格式把 `INFO` 及以上级别写到标准输出。
+- 在交互式终端上使用颜色，其他情况下输出纯文本。
+- `LoggerFactory`，按通道、流、级别和可选的格式化器创建带一个流处理器的 Monolog 日志记录器。
+- `ConsoleFormatter`，即控制台格式，可用于你自己的日志记录器。
+- 通过应用的 `#[Provider]` 替换标准输出日志记录器。
 
-`SuperKernel\Logger\Formatter\ConsoleFormatter` 提供具名标准输出日志器所选用的易读格式。其布局参考了 Spring Boot 的控制台输出，同时保留 PSR-3 和 PHP 的语义：
+它不会：
 
-```text
-2026-08-18T03:05:46.007+00:00 [NOTICE] Swoole main server started in base mode.
-2026-08-18T03:05:46.008+00:00 [INFO] Swoole listener "http" started on 127.0.0.1:9501 (http).
-```
+- 绑定 `Psr\Log\LoggerInterface`，该服务由应用选择；
+- 在控制台格式中替换占位符或显示上下文；
+- 读取环境文件、脱敏数据、轮转文件或缓冲记录；
+- 把记录发送到远程服务或异步写入。
 
-格式器输出可排序的毫秒精度时间戳，把每个 PSR-3 级别紧凑地放在方括号内，后跟恰好一个空格，然后只渲染消息。它省略 context 和 extra 数据，以及进程、分隔符、通道和线程列。使用方运行时会显式构造易读的终端语句；结构化输出应使用单独配置的格式器和处理器。
+## 快速开始
 
-默认输出不带修饰。传入 `decorated: true` 会启用参考 Spring Boot 的 ANSI 修饰：时间戳变暗；错误级别为红色；`WARNING` 为黄色；`NOTICE` 为青色；`INFO` 和 `DEBUG` 为绿色。消息本身不加修饰。输出是否支持 ANSI 修饰由使用方服务决定。
-
-## 具名 stdout 日志器
-
-容器提供的 `SuperKernel\Contract\StdoutLoggerInterface` 是一个新的日志器，使用 `super-kernel` 通道、一个级别为 `INFO` 的 `php://stdout` 流处理器以及 `ConsoleFormatter`。记录会原样交给 Monolog。
-
-只有当 stdout 是交互式终端、`NO_COLOR` 未设置且 `TERM` 不是 `dumb` 时，才会启用 ANSI 修饰。重定向或主动关闭颜色的输出保持不带修饰。
-
-Framework 的异常记录也使用这个具名 stdout 服务。由调用方选择 PSR-3 错误级别并负责异常的格式化；Logger 不提供第二个专用于异常的标识、适配器、通道或 stderr 传输。
-
-## 替换 stdout 日志器
-
-Framework 组件通过已注册的 `StdoutLoggerInterface` 写出记录，因此替换它即可统一控制这些记录的阈值、格式和流。要替换默认服务，请添加一个应用的生产 Provider，例如 `src/Logger/AppLogger.php`：
+从一个服务写入标准输出日志记录器。将它保存为 `src/Billing/InvoiceImporter.php`：
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace Src\Logger;
+namespace Src\Billing;
 
-use Psr\Log\LoggerInterface;
-use Psr\Log\LoggerTrait;
-use Psr\Log\LogLevel;
-use Stringable;
-use SuperKernel\Attribute\Provider;
 use SuperKernel\Contract\StdoutLoggerInterface;
-use SuperKernel\Logger\Factory\LoggerFactory;
-use SuperKernel\Logger\Formatter\ConsoleFormatter;
 
-#[Provider(StdoutLoggerInterface::class)]
-final readonly class AppLogger implements StdoutLoggerInterface
+final readonly class InvoiceImporter
 {
-    use LoggerTrait;
-
-    private LoggerInterface $logger;
-
-    public function __construct(LoggerFactory $factory)
+    public function __construct(private StdoutLoggerInterface $logger)
     {
-        $this->logger = $factory->create(
-            channel: 'application',
-            stream: 'php://stderr',
-            minimumLevel: LogLevel::WARNING,
-            formatter: new ConsoleFormatter(),
-        );
     }
 
-    public function log(mixed $level, string|Stringable $message, array $context = []): void
+    public function import(string $invoiceNumber): void
     {
-        $this->logger->log($level, $message, $context);
+        $this->logger->debug("Reading invoice {$invoiceNumber}.");
+        $this->logger->info("Invoice {$invoiceNumber} imported.");
     }
 }
 ```
 
-示例把 WARNING 及以上级别写到 STDERR；如果要保留默认的阈值和输出目标，改用 INFO 和 `php://stdout`。请保持该服务使用 `Provider`；再声明一个同目标的 `FactoryProvider` 会与默认工厂冲突。添加这个类之后请再次运行 `skernel build`，让容器发现它；`skernel run` 会在启动前先构建。如果应用需要按部署环境区分级别，请注入配置或环境变量服务。
+从脚本中使用该服务。将它保存为 `bin/import.php`：
 
-Logger 负责时间戳、级别、格式和所选的流。默认是 STDOUT 上的 INFO，因此日志行可能出现在命令自身的输出之前。当 stdout 必须是机器可读的协议时，请使用写到 STDERR 或文件的替换日志器。没有针对命令的流切换开关。应用已有的日志也使用同一个服务，因此同样遵循替换后的策略。
+```php
+<?php
+
+declare(strict_types=1);
+
+use Src\Billing\InvoiceImporter;
+use SuperKernel\Context\ApplicationContext;
+
+require dirname(__DIR__) . '/vendor/autoload.php';
+
+ApplicationContext::getContainer()->get(InvoiceImporter::class)->import('INV-1001');
+```
+
+构建项目并运行脚本：
+
+```bash
+skernel build
+php bin/import.php
+```
+
+它会打印类似 `2026-11-10T10:56:25.283+00:00 [INFO] Invoice INV-1001 imported.` 的一行；`DEBUG` 记录低于阈值。
+
+## 公开接口
+
+| 名称 | 类别 | 用途 |
+| --- | --- | --- |
+| `SuperKernel\Contract\StdoutLoggerInterface` | 接口 | 由容器提供；写到标准输出的 PSR-3 日志记录器。 |
+| `SuperKernel\Logger\Factory\LoggerFactory` | 类 | `create()` 按通道、流、最低级别和可选的格式化器返回一个新的 Monolog 日志记录器。 |
+| `SuperKernel\Logger\Formatter\ConsoleFormatter` | 类 | 把记录格式化为 `<timestamp> [<LEVEL>] <message>`，`decorated` 为 `true` 时使用颜色。 |
+
+## 需要了解的行为
+
+- 标准输出日志记录器写到 `php://stdout`，因此它的记录会与命令自己的输出混在一起。当标准输出必须保持机器可读时，请把它替换为写到 `php://stderr` 或文件的日志记录器。
+- 控制台格式按原样显示消息：`{id}` 之类的占位符不会被替换，上下文和附加数据也不会显示。
+- 只有当标准输出是终端、`NO_COLOR` 未设置并且 `TERM` 不是 `dumb` 时才使用颜色。
+- 用带有 `#[Provider(StdoutLoggerInterface::class)]` 的类替换日志记录器。为该接口再声明一个 `#[FactoryProvider]` 会使每次查找都失败，并报告 `Factory provider for SuperKernel\Contract\StdoutLoggerInterface is declared by both <class> and SuperKernel\Logger\Provider\StdoutLoggerProvider.`
+- 添加或修改替换实现之后，请重新运行 `skernel build`，或者用会先构建的 `skernel run` 启动。
+- `LoggerFactory::create()` 对未知级别抛出 `Psr\Log\InvalidArgumentException`；无法打开或写入的流在写入第一条记录时失败。
+
+## 文档
+
+开发者文档介绍了控制台格式、创建日志记录器和绑定 `LoggerInterface`、替换标准输出日志记录器，以及如何保持机器可读的输出干净：[SuperKernel Logger](https://github.com/super-kernel/.github/blob/main/docs/components/logger.zh-CN.md)。
+
+## 许可证
+
+基于 MIT 许可证发布，详见 [LICENSE](LICENSE)。
